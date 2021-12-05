@@ -13,7 +13,7 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     /* Create a windowed mode window and its OpenGL context */
-    Camera camera(Transform(Vector3(0,0,-10),Quaternion(0,0, 0, 1)));
+    Camera camera(Transform(Vector3(0,0,-1.5f),Quaternion(0,0, 0, 1)));
     GLFWwindow* window = camera.createScreen();
 
     /* Make the window's context current */
@@ -24,12 +24,11 @@ int main(void)
     Shader shaderProgram("src/default.vert","src/default.frag");
     
     // Variable creation here: 
+    float move = 0;
     float deltaTime = 0;
     char input;
     // Object creation on program start here:
-    //Triangle tri = Triangle(Vector3(0.0f, 0.0f, 5.0f), Vector3(1.0f, 0.0f, 5.0f), Vector3(0.0f, 1.0f, 5.0f), camera);
-    //Quad quad = Quad(Transform(Vector3(0, 1, 5)), camera);
-    Quad floor = Quad(Transform(Vector3(0, 0.0f, 15), Quaternion(0, 0, 0, 1), Vector3(1, 1, 1)), camera);
+    Quad quad = Quad(Transform(Vector3(0.0f,0,0),Quaternion(0.0f,0,0,1)), camera);
     VAO vao;
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -37,12 +36,10 @@ int main(void)
         auto t_start = std::chrono::high_resolution_clock::now();
         glClear(GL_COLOR_BUFFER_BIT);
         shaderProgram.Activate();
-        
-        //camera.move(Vector3(0.0f, 0.0f, 1 * deltaTime));
 
-        //tri.drawTriangle(vao);
-        //quad.drawQuad(vao, camera);
-        floor.drawQuad(vao, camera);
+        //camera.transform.Rotate(Vector3(0, 0, deltaTime));
+
+        quad.drawQuad(vao, camera);
 
         glfwSwapBuffers(window);
         /* Poll for and process events */

@@ -238,15 +238,17 @@ struct Quaternion {
 
         Vector3 zUnit = Vector3(this->x, this->y, this->z);
 
+
         float cosProject = (float)cos(M_PI * this->w);
         float sinProject = (float)sin(M_PI * this->w);
 
-        Vector3 xUnit = Vector3(1, 0, (-this->x / this->z));
-        Vector3 yUnit = Vector3(0, 1, (this->y / this->z));
+        // Need to update this unit vector derivation
+        Vector3 xUnit = Vector3(1, 0, (this->x)/ this->z);
+        Vector3 yUnit = Vector3(0, 1, (this->y) / this->z);
 
         Vector3 xx = Vector3(xUnit);
-        Vector3 xy = Vector3(xUnit);
-        Vector3 yx = Vector3(yUnit);
+        Vector3 xy = Vector3(yUnit);
+        Vector3 yx = Vector3(xUnit);
         Vector3 yy = Vector3(yUnit);
 
         xx.scalarMult(cosProject);
@@ -274,6 +276,7 @@ struct Quaternion {
         out.x = v.x * sin(angle / 2);
         out.y = v.y * sin(angle / 2);
         out.z = v.z * sin(angle / 2);
+
         return out;
     }
 
@@ -373,16 +376,22 @@ struct Transform {
         Quaternion qOut;
         qOut = this->rotation.getVectorQuaternion();
 
-        q.getFromVector(xUnit, angles.x);
-        qOut.multiply(q, qOut);
-        qOut.multiply(qOut, q.conjugate());
+        q = q.getFromVector(this->xUnit, angles.x);
 
-        q.getFromVector(yUnit, angles.y);
-        qOut.multiply(q, qOut);
-        qOut.multiply(qOut, q.conjugate());
+        qOut = qOut.multiply(q, qOut);
+        qOut = qOut.multiply(qOut, q.conjugate());
+
+        q = q.getFromVector(this->yUnit, angles.y);
+        qOut = qOut.multiply(q, qOut);
+        qOut = qOut.multiply(qOut, q.conjugate());
+
+        qOut.w = this->rotation.w + angles.z / (float)M_PI;
 
         this->rotation = qOut;
-        this->rotation.w += angles.z / (float)M_PI;
+
+        if (abs(this->rotation.w) > 1) {
+            this->rotation.w -= 2 * this->rotation.w;
+        }
 
         Vector3* unitVectors = new Vector3[3];
         unitVectors = this->rotation.GetUnitVectors();
@@ -412,32 +421,30 @@ struct Camera {
 
     Vector2 getScreenSpace(Vector3 position) {
         Vector3 displacement = displacement.difference(position, this->transform.position);
-        Vector3 relativeSpace = displacement.solve(transform.xUnit, transform.yUnit, transform.zUnit, displacement);
+        Vector3 relativeSpace = displacement.solve(this->transform.xUnit, this->transform.yUnit, this->transform.zUnit, displacement);
 
         Vector2 screenSpace;
         if (relativeSpace.z < 0) {
             relativeSpace.z = 0.001f;
         }
-        float xAmount = relativeSpace.x / abs(relativeSpace.z) / tan(fieldOfView / 2);
-        float yAmount = relativeSpace.y / abs(relativeSpace.z) / tan(vertFOV / 2);
+
+        float xDist = sqrt(pow(relativeSpace.x, 2) + pow(relativeSpace.z, 2));
+        float yDist = sqrt(pow(relativeSpace.y, 2) + pow(relativeSpace.z, 2));
+
+        float cosx = relativeSpace.z / xDist;
+        float cosy = relativeSpace.z / yDist;
+        float sinx = relativeSpace.x / xDist;
+        float siny = relativeSpace.y / yDist;
+
+        float x = sinx * cosy;
+        float y = siny;
+        float z = cosx * cosy;
+
+        float xAmount = x / z / tan(fieldOfView / 2);
+        float yAmount = y / z / tan(vertFOV / 2);
 
         screenSpace.x = xAmount;
         screenSpace.y = yAmount;
-
-        if (relativeSpace.z > 0) {
-            if (abs(xAmount) > 0.5f) {
-                screenSpace.x = xAmount * 2;
-            }
-            else {
-                screenSpace.x = sin(xAmount * M_PI);
-            }
-            if (abs(yAmount) > 0.5f) {
-                screenSpace.y = yAmount * 2;
-            }
-            else {
-                screenSpace.y = sin(yAmount * M_PI);
-            }     
-        }
         
         return screenSpace;
     }
@@ -449,6 +456,15 @@ struct Camera {
     GLFWwindow* createScreen() {
         GLFWwindow* window = glfwCreateWindow(xRes, yRes, "Hello World", NULL, NULL);
         return window;
+    }
+
+    void updateUnitVectors() {
+        Vector3* unitVectors = new Vector3[3];
+        unitVectors = this->transform.rotation.GetUnitVectors();
+        this->transform.xUnit = unitVectors[0];
+        this->transform.yUnit = unitVectors[1];
+        this->transform.zUnit = unitVectors[2];
+
     }
 };
 
@@ -504,13 +520,6 @@ struct Triangle {
         this->drawPos3 = camera.getScreenSpace(this->pos3);
     }
 
-    void checkBoundaries() {
-        /*
-        this->drawPos1
-
-        cout << screenSpace.x << ' ' << screenSpace.y << ' ';
-        */
-    }
 };
 
 struct Quad {
@@ -520,25 +529,11 @@ struct Quad {
 
     Quad() {}
     Quad(Transform transform, Camera camera) {
+        this->transform = transform;
+        setPositions(transform, camera);
         // Because this is a rectangle, only x and y scales have effect
         this->transform = transform;
-        float x1 = - transform.scale.x / 2;
-        float x2 = transform.scale.x / 2;
-        float y1 = - transform.scale.y / 2;
-        float y2 = transform.scale.y / 2;
-
-        float wRot = transform.rotation.w;
-        float xRot = transform.rotation.x;
-        float yRot = transform.rotation.y;
-        float zRot = transform.rotation.z;
-
-        this->tri1 = Triangle(transform.position.add(Vector3(x1 * (zRot + yRot), y1 * (zRot + xRot), y1 * yRot + x1 * xRot)),
-            transform.position.add(Vector3(x2 * (zRot + yRot), y1 * (zRot + xRot), y1 * yRot + x2 * xRot)),
-            transform.position.add(Vector3(x1 * (zRot + yRot), y2 * (zRot + xRot), y2 * yRot + x1 * xRot)), camera);
-        this->tri2 = Triangle(transform.position.add(Vector3(x2 * (zRot + yRot), y1 * (zRot + xRot), y1 * yRot + x2 * xRot)),
-            transform.position.add(Vector3(x1 * (zRot + yRot), y2 * (zRot + xRot), y2 * yRot + x1 * xRot)),
-            transform.position.add(Vector3(x2 * (zRot + yRot), y2 * (zRot + xRot), y2 * yRot + x2 * xRot)), camera);
-        cout << tri1.pos1.x << ' ' << tri1.pos1.y << ' ' << tri1.pos1.z << ' ' << tri2.pos1.x << ' ' << tri2.pos1.y << ' ' << tri2.pos1.z << ' ' << tri2.pos3.x << ' ' << tri2.pos3.y << ' ' << tri2.pos3.z << ' ';
+       // cout << tri1.pos1.x << ' ' << tri1.pos1.y << ' ' << tri1.pos1.z << ' ' << tri2.pos1.x << ' ' << tri2.pos1.y << ' ' << tri2.pos1.z << ' ' << tri2.pos3.x << ' ' << tri2.pos3.y << ' ' << tri2.pos3.z << ' ';
     }
 
     void drawQuad(VAO vao, Camera camera) {
@@ -552,7 +547,7 @@ struct Quad {
             this->tri1.drawPos3.x,this->tri1.drawPos3.y,
             this->tri2.drawPos3.x,this->tri2.drawPos3.y, };
 
-        GLuint indices[] = { 0,1,2,1,2,3, };
+        GLuint indices[] = { 0,1,2,0,2,3, };
 
         vao.Bind();
         VBO vbo(vertices, sizeof(vertices));
@@ -567,10 +562,43 @@ struct Quad {
         vbo.Delete();
         ebo.Delete();
     }
+
+    void Rotate(Vector3 angles, Camera camera) {
+        this->transform.Rotate(angles);
+        setPositions(this->transform, camera);
+    }
+
+    void setPositions(Transform transform, Camera camera) {
+        float x = transform.scale.x / 2;
+        float y = transform.scale.y / 2;
+        float r = sqrt(pow(x, 2) + pow(y, 2));
+
+        float wRot = transform.rotation.w;
+        float xRot = transform.rotation.x;
+        float yRot = transform.rotation.y;
+        float zRot = transform.rotation.z;
+
+        Vector2 pos1 = Vector2(r * cos(M_PI * (wRot - 0.75f)), r * sin(M_PI * (wRot - 0.75f)));
+        Vector2 pos2 = Vector2(r * cos(M_PI * (wRot - 0.25f)), r * sin(M_PI * (wRot - 0.25f)));
+        Vector2 pos3 = Vector2(r * cos(M_PI * (wRot + 0.25f)), r * sin(M_PI * (wRot + 0.25f)));
+        Vector2 pos4 = Vector2(r * cos(M_PI * (wRot + 0.75f)), r * sin(M_PI * (wRot + 0.75f)));
+
+        float xz, yz;
+        xz = sqrt(pow(xRot, 2) + pow(zRot, 2)) / zRot * abs(zRot);
+        yz = sqrt(pow(yRot, 2) + pow(zRot, 2)) / zRot * abs(zRot);
+
+        this->tri1 = Triangle(transform.position.add(Vector3(pos1.x * yz, pos1.y * xz, pos1.y * yRot + pos1.x * xRot)),
+            transform.position.add(Vector3(pos2.x * yz, pos2.y * xz, pos2.y * yRot + pos2.x * xRot)),
+            transform.position.add(Vector3(pos3.x * yz, pos3.y * xz, pos3.y * yRot + pos3.x * xRot)), camera);
+        this->tri2 = Triangle(transform.position.add(Vector3(pos1.x * yz, pos1.y * xz, pos1.y * yRot + pos1.x * xRot)),
+            transform.position.add(Vector3(pos3.x * yz, pos3.y * xz, pos3.y * yRot + pos3.x * xRot)),
+            transform.position.add(Vector3(pos4.x * yz, pos4.y * xz, pos4.y * yRot + pos4.x * xRot)), camera);
+    }
 };
 
 struct Cube {
     Quad quad1, quad2, quad3, quad4, quad5, quad6;
+    Transform transform;
 
     Cube(Quad q1, Quad q2, Quad q3, Quad q4, Quad q5, Quad q6) {
         this->quad1 = q1;
@@ -580,6 +608,21 @@ struct Cube {
         this->quad5 = q5;
         this->quad6 = q6;
     }
-    Cube(Transform transform) {
+    Cube(Transform transform, Camera camera) {
+        float x = transform.position.x;
+        float y = transform.position.y;
+        float z = transform.position.z;
+
+        float scaleX = transform.scale.x;
+        float scaleY = transform.scale.y;
+        float scaleZ = transform.scale.z;
+
+        float wRot = transform.rotation.w;
+        float xRot = transform.rotation.x;
+        float yRot = transform.rotation.y;
+        float zRot = transform.rotation.z;
+
+        this->transform = transform;
+        this->quad1 = Quad(Transform(Vector3(x, y, z)), camera);
     }
 };
