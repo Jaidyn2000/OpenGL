@@ -13,7 +13,7 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     /* Create a windowed mode window and its OpenGL context */
-    Camera camera(Transform(Vector3(0,0,-1.5f),Quaternion(0,0, 0, 1)));
+    Camera camera(Transform(Vector3(0.0f,0.0f,-0.5f),Quaternion(0,0,0,1)));
     GLFWwindow* window = camera.createScreen();
 
     /* Make the window's context current */
@@ -28,7 +28,10 @@ int main(void)
     float deltaTime = 0;
     char input;
     // Object creation on program start here:
-    Quad quad = Quad(Transform(Vector3(0.0f,0,0),Quaternion(0.0f,0,0,1)), camera);
+    //Cube cube = Cube(Transform(Vector3(-1.5,-1.5, 0), Quaternion(0.0, 0.001,0.001,1), Vector3(1, 1, 1)), camera);
+    Quad quad = Quad(Transform(Vector3(0, -2,10), Quaternion(0, 0,1,0),Vector3(3,3,1)), camera);
+
+
     VAO vao;
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -36,10 +39,13 @@ int main(void)
         auto t_start = std::chrono::high_resolution_clock::now();
         glClear(GL_COLOR_BUFFER_BIT);
         shaderProgram.Activate();
+        //quad.Rotate(Vector3(deltaTime, 0, 0), camera);
 
-        //camera.transform.Rotate(Vector3(0, 0, deltaTime));
-
+        //camera.move(Vector3(0, 0, deltaTime));
+        //camera.transform.Rotate(Vector3(0, deltaTime, 0));
         quad.drawQuad(vao, camera);
+
+
 
         glfwSwapBuffers(window);
         /* Poll for and process events */

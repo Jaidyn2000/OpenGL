@@ -189,6 +189,12 @@ struct Vector3 {
         Vector3 out = Vector3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
         return out;
     }
+    // Subtract function input from where the function is being called
+    Vector3 difference(Vector3 v1) {
+        Vector3 out = Vector3(this->x - v1.x, this->y - v1.y, this->z - v1.z);
+        return out;
+    }
+
     Vector3 difference(Vector3 v1, Vector3 v2) {
         Vector3 out = Vector3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
         return out;
@@ -198,23 +204,10 @@ struct Vector3 {
         this->y = y * n;
         this->z = z * n;
     }
+
     float norm() {
         float out = (float)sqrt(pow(this->x, 2) + pow(this->y, 2) + pow(this->z, 2));
         return out;
-    }
-    Vector3 solve(Vector3 xUnit, Vector3 yUnit, Vector3 zUnit, Vector3 displacement) {
-        float xAmount, yAmount, zAmount;
-        // For explanation, see Kramer's Rule
-        // For default: D = 1, Dx = 0, Dy = 0, Dz = 5
-        float D = xUnit.x * (yUnit.y * zUnit.z - zUnit.y * yUnit.z) + yUnit.x * (zUnit.y * xUnit.z + xUnit.y * zUnit.z) + zUnit.x * (xUnit.y * yUnit.z - yUnit.y * xUnit.z);
-        float Dx = displacement.x * (yUnit.y * zUnit.z - zUnit.y * yUnit.z) + yUnit.x * (displacement.z * zUnit.y - displacement.y * zUnit.z) + zUnit.x * (displacement.y * yUnit.z - yUnit.y * displacement.z);
-        float Dy = xUnit.x * (displacement.y * zUnit.z - zUnit.y * displacement.z) + displacement.x * (zUnit.y * xUnit.z - zUnit.z * xUnit.y) + zUnit.x * (xUnit.y * displacement.z - xUnit.z * displacement.y);
-        float Dz = xUnit.x * (yUnit.y * displacement.z - displacement.y * yUnit.z) + yUnit.x * (displacement.y * xUnit.z - displacement.z * xUnit.y) + displacement.x * (xUnit.y * yUnit.z - yUnit.y * xUnit.z);
-        xAmount = (float)Dx / (float)D;
-        yAmount = (float)Dy / (float)D;
-        zAmount = (float)Dz / (float)D;
-
-        return Vector3(xAmount, yAmount, zAmount);
     }
 };
 
@@ -241,10 +234,16 @@ struct Quaternion {
 
         float cosProject = (float)cos(M_PI * this->w);
         float sinProject = (float)sin(M_PI * this->w);
+        Vector3 xUnit, yUnit;
 
-        // Need to update this unit vector derivation
-        Vector3 xUnit = Vector3(1, 0, (this->x)/ this->z);
-        Vector3 yUnit = Vector3(0, 1, (this->y) / this->z);
+        if (this->z != 0) {
+            xUnit = Vector3(1, 0, (this->x) / this->z);
+            yUnit = Vector3(0, 1, (this->y) / this->z);
+        }
+        else {
+            xUnit = Vector3(1, 0, 0);
+            yUnit = Vector3(0, 1, 0);
+        }
 
         Vector3 xx = Vector3(xUnit);
         Vector3 xy = Vector3(yUnit);
@@ -376,12 +375,22 @@ struct Transform {
         Quaternion qOut;
         qOut = this->rotation.getVectorQuaternion();
 
-        q = q.getFromVector(this->xUnit, angles.x);
+        Vector3 angleX = this->xUnit;
+        Vector3 angleY = this->yUnit;
 
-        qOut = qOut.multiply(q, qOut);
-        qOut = qOut.multiply(qOut, q.conjugate());
+        angleX.scalarMult(angles.x);
+        angleY.scalarMult(angles.y);
+        Vector3 rotUnitVector = rotUnitVector.add(angleX,angleY);
 
-        q = q.getFromVector(this->yUnit, angles.y);
+        float rotVectorNorm = rotUnitVector.norm();
+        if (rotVectorNorm != 0) {
+            rotUnitVector.scalarMult(1 / rotVectorNorm);
+        }
+
+        float angleNorm = sqrt(pow(angles.x, 2) + pow(angles.y, 2));
+
+        q = q.getFromVector(rotUnitVector, angleNorm);
+
         qOut = qOut.multiply(q, qOut);
         qOut = qOut.multiply(qOut, q.conjugate());
 
@@ -398,6 +407,30 @@ struct Transform {
         this->xUnit = unitVectors[0];
         this->yUnit = unitVectors[1];
         this->zUnit = unitVectors[2];
+
+    }
+
+    Vector3 solve(Quaternion rotation, Vector3 displacement) {
+        float xAmount, yAmount, zAmount;
+        // For explanation, see Kramer's Rule
+        // For default: D = 1, Dx = 0, Dy = 0, Dz = 5
+        float xz = sqrt(pow(rotation.x, 2) + pow(rotation.z, 2));
+        float yz = sqrt(pow(rotation.y, 2) + pow(rotation.z, 2));
+
+        float x = displacement.x;
+        float y = displacement.y;
+        float z = displacement.z;
+
+        float cosx = rotation.z / xz;
+        float cosy = rotation.z / yz;
+        float sinx = -rotation.x / xz;
+        float siny = rotation.y / yz;
+
+        xAmount = z * sinx + x * cosx + y * siny * sinx;
+        yAmount = y * cosy + x * siny * sinx + z * siny * cosx;
+        zAmount = z * cosx + x * sinx + y * siny * sinx;
+        return Vector3(xAmount, yAmount, zAmount);
+        //
     }
 };
 struct Camera {
@@ -406,14 +439,14 @@ struct Camera {
     int xRes, yRes;
     Camera() {
         this->transform = Transform(Vector3(0,0,0));
-        this->fieldOfView = (float)2 * M_PI / 3;
+        this->fieldOfView = (float)12 * M_PI / 18;
         this->xRes = 1920;
         this->yRes = 1080;
         this->vertFOV = atan(tan(fieldOfView / 2) * yRes / xRes) * 2;
     }
     Camera(Transform transform) {
         this->transform = transform;
-        this->fieldOfView = (float)2 * M_PI / 3;
+        this->fieldOfView = (float)12 * M_PI/18;
         this->xRes = 1920;
         this->yRes = 1080;
         this->vertFOV = atan(tan(fieldOfView / 2) * yRes / xRes) * 2;
@@ -421,31 +454,17 @@ struct Camera {
 
     Vector2 getScreenSpace(Vector3 position) {
         Vector3 displacement = displacement.difference(position, this->transform.position);
-        Vector3 relativeSpace = displacement.solve(this->transform.xUnit, this->transform.yUnit, this->transform.zUnit, displacement);
-
+        Vector3 relativeSpace = this->transform.solve(this->transform.rotation, displacement);
         Vector2 screenSpace;
-        if (relativeSpace.z < 0) {
-            relativeSpace.z = 0.001f;
-        }
-
-        float xDist = sqrt(pow(relativeSpace.x, 2) + pow(relativeSpace.z, 2));
-        float yDist = sqrt(pow(relativeSpace.y, 2) + pow(relativeSpace.z, 2));
-
-        float cosx = relativeSpace.z / xDist;
-        float cosy = relativeSpace.z / yDist;
-        float sinx = relativeSpace.x / xDist;
-        float siny = relativeSpace.y / yDist;
-
-        float x = sinx * cosy;
-        float y = siny;
-        float z = cosx * cosy;
-
-        float xAmount = x / z / tan(fieldOfView / 2);
-        float yAmount = y / z / tan(vertFOV / 2);
-
-        screenSpace.x = xAmount;
-        screenSpace.y = yAmount;
         
+        if (relativeSpace.z < 0) {
+            relativeSpace.z = 0.001;
+        }
+        
+        // Perspective Simple Projection
+        screenSpace.x = relativeSpace.x / relativeSpace.z / tan(fieldOfView / 2);
+        screenSpace.y = relativeSpace.y / relativeSpace.z / tan(vertFOV / 2);
+
         return screenSpace;
     }
 
@@ -464,7 +483,6 @@ struct Camera {
         this->transform.xUnit = unitVectors[0];
         this->transform.yUnit = unitVectors[1];
         this->transform.zUnit = unitVectors[2];
-
     }
 };
 
@@ -529,39 +547,10 @@ struct Quad {
 
     Quad() {}
     Quad(Transform transform, Camera camera) {
-        this->transform = transform;
-        setPositions(transform, camera);
         // Because this is a rectangle, only x and y scales have effect
+        setPositions(transform, camera);
         this->transform = transform;
-       // cout << tri1.pos1.x << ' ' << tri1.pos1.y << ' ' << tri1.pos1.z << ' ' << tri2.pos1.x << ' ' << tri2.pos1.y << ' ' << tri2.pos1.z << ' ' << tri2.pos3.x << ' ' << tri2.pos3.y << ' ' << tri2.pos3.z << ' ';
-    }
-
-    void drawQuad(VAO vao, Camera camera) {
-
-        this->tri1.updatePosition(camera);
-        this->tri2.updatePosition(camera);
-
-        GLfloat vertices[] = {
-            this->tri1.drawPos1.x,this->tri1.drawPos1.y,
-            this->tri1.drawPos2.x,this->tri1.drawPos2.y,
-            this->tri1.drawPos3.x,this->tri1.drawPos3.y,
-            this->tri2.drawPos3.x,this->tri2.drawPos3.y, };
-
-        GLuint indices[] = { 0,1,2,0,2,3, };
-
-        vao.Bind();
-        VBO vbo(vertices, sizeof(vertices));
-        EBO ebo(indices, sizeof(indices));
-        vao.linkVBO(vbo, 0);
-        vbo.Bind();
-        ebo.Bind();
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        vao.Unbind();
-        vbo.Unbind();
-        ebo.Unbind();
-        vbo.Delete();
-        ebo.Delete();
-    }
+        }
 
     void Rotate(Vector3 angles, Camera camera) {
         this->transform.Rotate(angles);
@@ -578,21 +567,63 @@ struct Quad {
         float yRot = transform.rotation.y;
         float zRot = transform.rotation.z;
 
-        Vector2 pos1 = Vector2(r * cos(M_PI * (wRot - 0.75f)), r * sin(M_PI * (wRot - 0.75f)));
-        Vector2 pos2 = Vector2(r * cos(M_PI * (wRot - 0.25f)), r * sin(M_PI * (wRot - 0.25f)));
-        Vector2 pos3 = Vector2(r * cos(M_PI * (wRot + 0.25f)), r * sin(M_PI * (wRot + 0.25f)));
-        Vector2 pos4 = Vector2(r * cos(M_PI * (wRot + 0.75f)), r * sin(M_PI * (wRot + 0.75f)));
+        float angle = atan(y / x)/M_PI; 
+
+        Vector2 pos1 = Vector2(r * cos(M_PI * (wRot - 1 + angle)), r * sin(M_PI * (wRot - 1 + angle)));
+        Vector2 pos2 = Vector2(r * cos(M_PI * (wRot - angle)), r * sin(M_PI * (wRot - angle)));
+        Vector2 pos3 = Vector2(r * cos(M_PI * (wRot + angle)), r * sin(M_PI * (wRot + angle)));
+        Vector2 pos4 = Vector2(r * cos(M_PI * (wRot + 1 - angle)), r * sin(M_PI * (wRot + 1 - angle)));
 
         float xz, yz;
-        xz = sqrt(pow(xRot, 2) + pow(zRot, 2)) / zRot * abs(zRot);
-        yz = sqrt(pow(yRot, 2) + pow(zRot, 2)) / zRot * abs(zRot);
 
+        if (zRot < 0) {
+            xz = -sqrt(pow(xRot, 2) + pow(zRot, 2));
+            yz = -sqrt(pow(yRot, 2) + pow(zRot, 2));
+        }
+        else if (zRot > 0) {
+            xz = sqrt(pow(xRot, 2) + pow(zRot, 2));
+            yz = sqrt(pow(yRot, 2) + pow(zRot, 2));
+        }
+        else {
+            xz = xRot;
+            yz = yRot;
+        }
+        
         this->tri1 = Triangle(transform.position.add(Vector3(pos1.x * yz, pos1.y * xz, pos1.y * yRot + pos1.x * xRot)),
             transform.position.add(Vector3(pos2.x * yz, pos2.y * xz, pos2.y * yRot + pos2.x * xRot)),
             transform.position.add(Vector3(pos3.x * yz, pos3.y * xz, pos3.y * yRot + pos3.x * xRot)), camera);
         this->tri2 = Triangle(transform.position.add(Vector3(pos1.x * yz, pos1.y * xz, pos1.y * yRot + pos1.x * xRot)),
             transform.position.add(Vector3(pos3.x * yz, pos3.y * xz, pos3.y * yRot + pos3.x * xRot)),
             transform.position.add(Vector3(pos4.x * yz, pos4.y * xz, pos4.y * yRot + pos4.x * xRot)), camera);
+
+    }
+
+    void drawQuad(VAO vao, Camera camera) {
+
+       // if (this->transform.rotation.z* camera.transform.rotation.z >= 0 && this->transform.rotation.y * camera.transform.rotation.y >= 0 && this->transform.rotation.x * camera.transform.rotation.x >= 0) {
+            this->tri1.updatePosition(camera);
+            this->tri2.updatePosition(camera);
+            GLfloat vertices[] = {
+                this->tri1.drawPos1.x,this->tri1.drawPos1.y,
+                this->tri1.drawPos2.x,this->tri1.drawPos2.y,
+                this->tri1.drawPos3.x,this->tri1.drawPos3.y,
+                this->tri2.drawPos3.x,this->tri2.drawPos3.y, };
+
+            GLuint indices[] = { 0,1,2,0,2,3, };
+
+            vao.Bind();
+            VBO vbo(vertices, sizeof(vertices));
+            EBO ebo(indices, sizeof(indices));
+            vao.linkVBO(vbo, 0);
+            vbo.Bind();
+            ebo.Bind();
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            vao.Unbind();
+            vbo.Unbind();
+            ebo.Unbind();
+            vbo.Delete();
+            ebo.Delete();
+       // }
     }
 };
 
@@ -600,15 +631,9 @@ struct Cube {
     Quad quad1, quad2, quad3, quad4, quad5, quad6;
     Transform transform;
 
-    Cube(Quad q1, Quad q2, Quad q3, Quad q4, Quad q5, Quad q6) {
-        this->quad1 = q1;
-        this->quad2 = q2;
-        this->quad3 = q3;
-        this->quad4 = q4;
-        this->quad5 = q5;
-        this->quad6 = q6;
-    }
     Cube(Transform transform, Camera camera) {
+        this->transform = transform;
+
         float x = transform.position.x;
         float y = transform.position.y;
         float z = transform.position.z;
@@ -616,13 +641,55 @@ struct Cube {
         float scaleX = transform.scale.x;
         float scaleY = transform.scale.y;
         float scaleZ = transform.scale.z;
+        float r = sqrt(pow(scaleX, 2) + pow(scaleY, 2) + pow(scaleZ, 2));
 
         float wRot = transform.rotation.w;
         float xRot = transform.rotation.x;
         float yRot = transform.rotation.y;
         float zRot = transform.rotation.z;
 
-        this->transform = transform;
-        this->quad1 = Quad(Transform(Vector3(x, y, z)), camera);
+        Vector3 xUnit = transform.xUnit;
+        Vector3 yUnit = transform.yUnit;
+        Vector3 zUnit = transform.zUnit;
+
+        //float xz = sqrt(pow(xRot, 2) + pow(zRot, 2)) / zRot * abs(zRot);
+        //float yz = sqrt(pow(yRot, 2) + pow(zRot, 2)) / zRot * abs(zRot);
+        
+        Vector3 xAdd = Vector3(scaleX * xUnit.x * 0.5f, scaleX * xUnit.y * 0.5f, scaleX * xUnit.z * 0.5f);
+        Vector3 yAdd = Vector3(scaleY * yUnit.x * 0.5f, scaleY * yUnit.y * 0.5f, scaleY * yUnit.z * 0.5f);
+        Vector3 zAdd = Vector3(scaleZ * zUnit.x * 0.5f, scaleZ * zUnit.y * 0.5f, scaleZ * zUnit.z * 0.5f);
+        Vector3 pos = Vector3(x, y, z);
+
+        //  Next step is to add rotation to the cube
+        Vector3 pos1 = pos.difference(xAdd);
+        Vector3 pos2 = pos.add(xAdd);
+        Vector3 pos3 = pos.difference(yAdd);
+        Vector3 pos4 = pos.add(yAdd);
+        Vector3 pos5 = pos.difference(zAdd);
+        Vector3 pos6 = pos.add(zAdd);
+
+        Quaternion rot1 = Quaternion(wRot, -xUnit.x, -xUnit.y, -xUnit.z);
+        Quaternion rot2 = Quaternion(wRot, xUnit.x, xUnit.y, xUnit.z);
+        Quaternion rot3 = Quaternion(wRot, -yUnit.x, -yUnit.y, -yUnit.z);
+        Quaternion rot4 = Quaternion(wRot, yUnit.x, yUnit.y, yUnit.z);
+        Quaternion rot5 = Quaternion(wRot, -zUnit.x, -zUnit.y, -zUnit.z);
+        Quaternion rot6 = Quaternion(wRot, zUnit.x, zUnit.y, zUnit.z);
+
+
+        this->quad1 = Quad(Transform(pos1, rot1, Vector3(scaleZ, scaleY, 0)), camera);
+        this->quad2 = Quad(Transform(pos2, rot2, Vector3(scaleZ, scaleY, 0)), camera);
+        this->quad3 = Quad(Transform(pos3, rot3, Vector3(scaleX, scaleZ, 0)), camera);
+        this->quad4 = Quad(Transform(pos4, rot4, Vector3(scaleX, scaleZ, 0)), camera);
+        this->quad5 = Quad(Transform(pos5, rot5, Vector3(scaleX, scaleY, 0)), camera);
+        this->quad6 = Quad(Transform(pos6, rot6, Vector3(scaleX, scaleY, 0)), camera);
+    }
+
+    void drawCube(VAO vao, Camera camera) {
+        this->quad1.drawQuad(vao, camera);
+        this->quad2.drawQuad(vao, camera);
+        this->quad3.drawQuad(vao, camera);
+        this->quad4.drawQuad(vao, camera);
+        this->quad5.drawQuad(vao, camera);
+        this->quad6.drawQuad(vao, camera);
     }
 };
