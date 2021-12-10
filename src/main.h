@@ -13,6 +13,9 @@
 #include <fstream>
 #include <sstream>
 #include <cerrno>
+#include <map>
+#include <vector>
+#include <Windows.h>
 
 using namespace std;
 
@@ -387,7 +390,7 @@ struct Transform {
             rotUnitVector.scalarMult(1 / rotVectorNorm);
         }
 
-        float angleNorm = sqrt(pow(angles.x, 2) + pow(angles.y, 2));
+        float angleNorm = (float)sqrt(pow(angles.x, 2) + pow(angles.y, 2));
 
         q = q.getFromVector(rotUnitVector, angleNorm);
 
@@ -399,7 +402,7 @@ struct Transform {
         this->rotation = qOut;
 
         if (abs(this->rotation.w) > 1) {
-            this->rotation.w -= 2 * this->rotation.w;
+            this->rotation.w -= 2 * this->rotation.w/abs(this->rotation.w);
         }
 
         Vector3* unitVectors = new Vector3[3];
@@ -407,15 +410,14 @@ struct Transform {
         this->xUnit = unitVectors[0];
         this->yUnit = unitVectors[1];
         this->zUnit = unitVectors[2];
-
     }
 
     Vector3 solve(Quaternion rotation, Vector3 displacement) {
         float xAmount, yAmount, zAmount;
         // For explanation, see Kramer's Rule
         // For default: D = 1, Dx = 0, Dy = 0, Dz = 5
-        float xz = sqrt(pow(rotation.x, 2) + pow(rotation.z, 2));
-        float yz = sqrt(pow(rotation.y, 2) + pow(rotation.z, 2));
+        float xz = (float)sqrt(pow(rotation.x, 2) + pow(rotation.z, 2));
+        float yz = (float)sqrt(pow(rotation.y, 2) + pow(rotation.z, 2));
 
         float x = displacement.x;
         float y = displacement.y;
@@ -439,14 +441,14 @@ struct Camera {
     int xRes, yRes;
     Camera() {
         this->transform = Transform(Vector3(0,0,0));
-        this->fieldOfView = (float)12 * M_PI / 18;
+        this->fieldOfView = 12 * (float)M_PI / 18;
         this->xRes = 1920;
         this->yRes = 1080;
         this->vertFOV = atan(tan(fieldOfView / 2) * yRes / xRes) * 2;
     }
     Camera(Transform transform) {
         this->transform = transform;
-        this->fieldOfView = (float)12 * M_PI/18;
+        this->fieldOfView = 12 * (float)M_PI/18;
         this->xRes = 1920;
         this->yRes = 1080;
         this->vertFOV = atan(tan(fieldOfView / 2) * yRes / xRes) * 2;
@@ -458,7 +460,7 @@ struct Camera {
         Vector2 screenSpace;
         
         if (relativeSpace.z < 0) {
-            relativeSpace.z = 0.001;
+            relativeSpace.z = (float)0.001;
         }
         
         // Perspective Simple Projection
@@ -552,37 +554,33 @@ struct Quad {
         this->transform = transform;
         }
 
-    void Rotate(Vector3 angles, Camera camera) {
-        this->transform.Rotate(angles);
-        setPositions(this->transform, camera);
-    }
 
     void setPositions(Transform transform, Camera camera) {
         float x = transform.scale.x / 2;
         float y = transform.scale.y / 2;
-        float r = sqrt(pow(x, 2) + pow(y, 2));
+        float r = (float)sqrt(pow(x, 2) + pow(y, 2));
 
         float wRot = transform.rotation.w;
         float xRot = transform.rotation.x;
         float yRot = transform.rotation.y;
         float zRot = transform.rotation.z;
 
-        float angle = atan(y / x)/M_PI; 
+        float angle = (float)atan(y / x)/ (float)M_PI;
 
-        Vector2 pos1 = Vector2(r * cos(M_PI * (wRot - 1 + angle)), r * sin(M_PI * (wRot - 1 + angle)));
-        Vector2 pos2 = Vector2(r * cos(M_PI * (wRot - angle)), r * sin(M_PI * (wRot - angle)));
-        Vector2 pos3 = Vector2(r * cos(M_PI * (wRot + angle)), r * sin(M_PI * (wRot + angle)));
-        Vector2 pos4 = Vector2(r * cos(M_PI * (wRot + 1 - angle)), r * sin(M_PI * (wRot + 1 - angle)));
+        Vector2 pos1 = Vector2(r * (float)cos(M_PI * (wRot - 1 + angle)), r * (float)sin(M_PI * (wRot - 1 + angle)));
+        Vector2 pos2 = Vector2(r * (float)cos(M_PI * (wRot - angle)), r * (float)sin(M_PI * (wRot - angle)));
+        Vector2 pos3 = Vector2(r * (float)cos(M_PI * (wRot + angle)), r * (float)sin(M_PI * (wRot + angle)));
+        Vector2 pos4 = Vector2(r * (float)cos(M_PI * (wRot + 1 - angle)), r * (float)sin(M_PI * (wRot + 1 - angle)));
 
         float xz, yz;
 
         if (zRot < 0) {
-            xz = -sqrt(pow(xRot, 2) + pow(zRot, 2));
-            yz = -sqrt(pow(yRot, 2) + pow(zRot, 2));
+            xz = (float) - sqrt(pow(xRot, 2) + pow(zRot, 2));
+            yz = (float)-sqrt(pow(yRot, 2) + pow(zRot, 2));
         }
         else if (zRot > 0) {
-            xz = sqrt(pow(xRot, 2) + pow(zRot, 2));
-            yz = sqrt(pow(yRot, 2) + pow(zRot, 2));
+            xz = (float)sqrt(pow(xRot, 2) + pow(zRot, 2));
+            yz = (float)sqrt(pow(yRot, 2) + pow(zRot, 2));
         }
         else {
             xz = xRot;
@@ -600,7 +598,6 @@ struct Quad {
 
     void drawQuad(VAO vao, Camera camera) {
 
-       // if (this->transform.rotation.z* camera.transform.rotation.z >= 0 && this->transform.rotation.y * camera.transform.rotation.y >= 0 && this->transform.rotation.x * camera.transform.rotation.x >= 0) {
             this->tri1.updatePosition(camera);
             this->tri2.updatePosition(camera);
             GLfloat vertices[] = {
@@ -623,7 +620,10 @@ struct Quad {
             ebo.Unbind();
             vbo.Delete();
             ebo.Delete();
-       // }
+    }
+
+    void Rotate(Vector3 angles, Camera camera) {
+        this->transform.Rotate(angles);
     }
 };
 
@@ -641,7 +641,7 @@ struct Cube {
         float scaleX = transform.scale.x;
         float scaleY = transform.scale.y;
         float scaleZ = transform.scale.z;
-        float r = sqrt(pow(scaleX, 2) + pow(scaleY, 2) + pow(scaleZ, 2));
+        float r = (float)sqrt(pow(scaleX, 2) + pow(scaleY, 2) + pow(scaleZ, 2));
 
         float wRot = transform.rotation.w;
         float xRot = transform.rotation.x;
@@ -691,5 +691,97 @@ struct Cube {
         this->quad4.drawQuad(vao, camera);
         this->quad5.drawQuad(vao, camera);
         this->quad6.drawQuad(vao, camera);
+    }
+};
+struct ObjectList {
+    vector<Quad> quads;
+
+
+    void drawObjects(VAO vao, Camera camera) {
+        for (int i = 0; i < quads.size(); i++) {
+           quads[i].drawQuad(vao, camera);
+        }
+    }
+
+    void addObject(Quad quad) {
+        quads.push_back(quad);
+    }
+
+    void Rotate(Vector3 angles, Camera camera, int id) {
+        quads[id].Rotate(angles, camera);
+        quads[id].setPositions(quads[id].transform, camera);
+    }
+
+};
+struct StartInit {
+    Camera camera;
+    GLFWwindow* window;
+    ObjectList objectList;
+};
+struct InputListener {
+    InputListener() {
+
+    }
+    ~InputListener() {
+
+    }
+
+    virtual void onKeyDown(int key) {
+
+    }
+    virtual void onKeyUp(int key) {
+
+    }
+};
+struct InputSystem {
+    map<InputListener*, InputListener*> mMapListeners;
+    unsigned char mKeyState[256] = {};
+    unsigned char mOldKeyState[256] = {};
+
+    void addListener(InputListener* listener) {
+        mMapListeners.insert(make_pair<InputListener*, InputListener*>(forward<InputListener*>(listener), forward<InputListener*>(listener)));
+    }
+
+    void removeListener(InputListener* listener) {
+        map<InputListener*, InputListener*>::iterator it = mMapListeners.find(listener);
+    
+        if (it != mMapListeners.end()) {
+            mMapListeners.erase(it);
+        }
+    }
+
+    void update() {
+        if (::GetKeyboardState(mKeyState)) {
+            for (unsigned int i = 0; i < 256; i++) {
+                // Key is down
+                if (mKeyState[i] & 0x80) {
+
+                    map<InputListener*, InputListener*>::iterator it = mMapListeners.begin();
+                    while (it != mMapListeners.end()) {
+                        it->second->onKeyDown(i);
+                        ++it;
+                    }
+                }
+                // Key is up
+                else {
+                    if (mKeyState[i] != mOldKeyState[i]) {
+
+                        map<InputListener*, InputListener*>::iterator it = mMapListeners.begin();
+                        while (it != mMapListeners.end()) {
+                            it->second->onKeyUp(i);
+                            ++it;
+
+                        }
+                    }
+                }
+            }
+            // Store current key state to old key state buffer
+            ::memcpy(mOldKeyState, mKeyState, sizeof(unsigned char) * 256);
+        }
+    }
+
+    InputSystem* get() {
+        static InputSystem system;
+        return &system;
     }
 };
