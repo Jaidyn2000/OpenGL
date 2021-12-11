@@ -2,8 +2,8 @@
 
 #include "main.h"
 
-StartInit Start() {
-    StartInit out;
+App Start() {
+    App out;
 
     Camera camera(Transform(Vector3(0.0f, 0.0f, -2.5f), Quaternion(0, 0, 0, 1)));
     out.camera = camera;
@@ -17,13 +17,13 @@ StartInit Start() {
     return out;
 }
 
-StartInit Update(float deltaTime, VAO vao, StartInit startInit) {
-
-    startInit.objectList.Rotate(Vector3(deltaTime * 3, 0, deltaTime*3), startInit.camera,0);
-    startInit.objectList.Rotate(Vector3(-deltaTime * 3, 0, -deltaTime * 3), startInit.camera, 1);
+App Update(float deltaTime, VAO vao, App app) {
+    app.objectList.quads[0].Rotate(Vector3(0, 0, deltaTime * 3), app.camera);
+    //app.objectList.Rotate(Vector3(0, 0, deltaTime*3), app.camera,0);
+    //app.objectList.Rotate(Vector3(0, 0, -deltaTime * 3), app.camera, 1);
    
-    startInit.objectList.drawObjects(vao, startInit.camera);
-    return startInit;
+    app.objectList.drawObjects(vao, app.camera);
+    return app;
 }
 
 
@@ -38,11 +38,11 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
-    StartInit startInit = Start();
+    App app = Start();
     float deltaTime = 0;
 
     /* Make the window's context current */
-    glfwMakeContextCurrent(startInit.window);
+    glfwMakeContextCurrent(app.window);
 
     glewInit();
 
@@ -52,15 +52,15 @@ int main(void)
 
     VAO vao;
     /* Loop until the user closes the window */
-    while (!glfwWindowShouldClose(startInit.window))
+    while (!glfwWindowShouldClose(app.window))
     {   
         auto t_start = std::chrono::high_resolution_clock::now();
         glClear(GL_COLOR_BUFFER_BIT);
         shaderProgram.Activate();
 
-        startInit = Update(deltaTime, vao, startInit);
+        app = Update(deltaTime, vao, app);
 
-        glfwSwapBuffers(startInit.window);
+        glfwSwapBuffers(app.window);
         /* Poll for and process events */
         glfwPollEvents();
         auto t_end = std::chrono::high_resolution_clock::now();
@@ -70,7 +70,7 @@ int main(void)
     vao.Delete();
     shaderProgram.Delete();
 
-    glfwDestroyWindow(startInit.window);
+    glfwDestroyWindow(app.window);
     glfwTerminate();
     return 0;
 }

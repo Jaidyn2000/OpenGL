@@ -624,6 +624,7 @@ struct Quad {
 
     void Rotate(Vector3 angles, Camera camera) {
         this->transform.Rotate(angles);
+        setPositions(this->transform, camera);
     }
 };
 
@@ -709,11 +710,10 @@ struct ObjectList {
 
     void Rotate(Vector3 angles, Camera camera, int id) {
         quads[id].Rotate(angles, camera);
-        quads[id].setPositions(quads[id].transform, camera);
     }
 
 };
-struct StartInit {
+struct App {
     Camera camera;
     GLFWwindow* window;
     ObjectList objectList;
