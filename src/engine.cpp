@@ -5,24 +5,23 @@
 App Start() {
     App out;
 
-    Camera camera(Transform(Vector3(0.0f, 0.0f, -2.5f), Quaternion(0, 0, 0, 1)));
-    out.camera = camera;
+    out.camera = Camera(Transform(Vector3(0.0f, 0.0f, -2.5f), Quaternion(0, 0, 0, 1)));
+    out.window = out.camera.createScreen();
+    out.onCreate();
 
-    GLFWwindow* window = camera.createScreen();
-    out.window = window;
+    //out.objectList.addObject(Quad(Transform(Vector3(1, 0, 0)), out.camera));
+    //out.objectList.addObject(Quad(Transform(Vector3(-1, 0, 0)), out.camera));
+    out.objectList.addObject(Quad(Transform(Vector3(0, -1, 0), Quaternion(0,0,1,0), Vector3(10,10,1)), out.camera));
 
-    out.objectList.addObject(Quad(Transform(Vector3(1, 0, 0)), camera));
-    out.objectList.addObject(Quad(Transform(Vector3(-1, 0, 0)), camera));
-
+    out.speed = 3;
     return out;
 }
 
 App Update(float deltaTime, VAO vao, App app) {
-    app.objectList.quads[0].Rotate(Vector3(0, 0, deltaTime * 3), app.camera);
-    //app.objectList.Rotate(Vector3(0, 0, deltaTime*3), app.camera,0);
-    //app.objectList.Rotate(Vector3(0, 0, -deltaTime * 3), app.camera, 1);
-   
-    app.objectList.drawObjects(vao, app.camera);
+
+    //app.objectList.quads[0].Rotate(Vector3(0, 0, deltaTime * 3), app.camera);
+    
+    app.update(deltaTime, vao);
     return app;
 }
 

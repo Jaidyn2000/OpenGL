@@ -713,75 +713,55 @@ struct ObjectList {
     }
 
 };
-struct App {
+
+struct App{
     Camera camera;
     GLFWwindow* window;
     ObjectList objectList;
-};
-struct InputListener {
-    InputListener() {
-
-    }
-    ~InputListener() {
-
-    }
-
-    virtual void onKeyDown(int key) {
-
-    }
-    virtual void onKeyUp(int key) {
-
-    }
-};
-struct InputSystem {
-    map<InputListener*, InputListener*> mMapListeners;
     unsigned char mKeyState[256] = {};
     unsigned char mOldKeyState[256] = {};
+    float speed;
 
-    void addListener(InputListener* listener) {
-        mMapListeners.insert(make_pair<InputListener*, InputListener*>(forward<InputListener*>(listener), forward<InputListener*>(listener)));
-    }
-
-    void removeListener(InputListener* listener) {
-        map<InputListener*, InputListener*>::iterator it = mMapListeners.find(listener);
-    
-        if (it != mMapListeners.end()) {
-            mMapListeners.erase(it);
+    virtual void onKeyDown(int key,float deltaTime){
+        if (key == 'W') {
+            this->camera.move(Vector3(0, 0, deltaTime * speed));
         }
+        if (key == 'A') {
+            this->camera.move(Vector3(-deltaTime * speed, 0, 0));
+        }
+        if (key == 'S') {
+            this->camera.move(Vector3(0, 0, -deltaTime * speed));
+        }
+        if (key == 'D') {
+            this->camera.move(Vector3(deltaTime * speed, 0, 0));
+        }
+
+    }
+    virtual void onKeyUp(int key, float deltaTime){
+
     }
 
-    void update() {
+    void onCreate() {
+        this->camera = Camera(Transform(Vector3(0.0f, 0.0f, -2.5f), Quaternion(0, 0, 0, 1)));
+        this->window = camera.createScreen();
+    }
+
+    void update(float deltaTime, VAO vao) {
+        this->objectList.drawObjects(vao, this->camera);
+
         if (::GetKeyboardState(mKeyState)) {
             for (unsigned int i = 0; i < 256; i++) {
                 // Key is down
                 if (mKeyState[i] & 0x80) {
-
-                    map<InputListener*, InputListener*>::iterator it = mMapListeners.begin();
-                    while (it != mMapListeners.end()) {
-                        it->second->onKeyDown(i);
-                        ++it;
-                    }
+                    onKeyDown(i, deltaTime);
                 }
                 // Key is up
-                else {
-                    if (mKeyState[i] != mOldKeyState[i]) {
-
-                        map<InputListener*, InputListener*>::iterator it = mMapListeners.begin();
-                        while (it != mMapListeners.end()) {
-                            it->second->onKeyUp(i);
-                            ++it;
-
-                        }
-                    }
+                else if (mKeyState[i] != mOldKeyState[i]) {
+                    onKeyUp(i, deltaTime);
                 }
             }
             // Store current key state to old key state buffer
             ::memcpy(mOldKeyState, mKeyState, sizeof(unsigned char) * 256);
         }
-    }
-
-    InputSystem* get() {
-        static InputSystem system;
-        return &system;
     }
 };
