@@ -161,6 +161,7 @@
   <ItemGroup>
     <None Include="src\default.frag" />
     <None Include="src\default.vert" />
+    <None Include="src\red.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -144,7 +144,7 @@ struct Shader {
     void Activate() {
         glUseProgram(id);
     }
-    void Delete() {
+    void Delete(int id) {
         glDeleteProgram(id);
     }
 };
@@ -181,12 +181,10 @@ struct Vector3 {
         this->y += y;
         this->z += z;
     }
-    Vector3 add(Vector3 v) {
-        Vector3 out;
-        out.x = v.x + this->x;
-        out.y = v.y + this->y;
-        out.z = v.z + this->z;
-        return out;
+    void add(Vector3 v) {
+        this->x += v.x;
+        this->y += v.y;
+        this->z += v.z;
     }
     Vector3 add(Vector3 v1, Vector3 v2) {
         Vector3 out = Vector3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
@@ -505,9 +503,9 @@ struct Triangle {
 
     }
     void move(Vector3 delta) {
-        this->pos1 = this->pos1.add(delta);
-        this->pos2 = this->pos2.add(delta);
-        this->pos3 = this->pos3.add(delta);
+        this->pos1.add(delta);
+        this->pos2.add(delta);
+        this->pos3.add(delta);
     }
 
     void drawTriangle(VAO vao, Camera camera) {
@@ -586,44 +584,56 @@ struct Quad {
             xz = xRot;
             yz = yRot;
         }
+        Vector3 triPos1 = transform.position;
+        Vector3 triPos2 = transform.position;
+        Vector3 triPos3 = transform.position;
+        Vector3 triPos4 = transform.position;
+
+        triPos1.add(Vector3(pos1.x * yz, pos1.y * xz, pos1.y * yRot + pos1.x * xRot));
+        triPos2.add(Vector3(pos2.x * yz, pos2.y * xz, pos2.y * yRot + pos2.x * xRot));
+        triPos3.add(Vector3(pos3.x * yz, pos3.y * xz, pos3.y * yRot + pos3.x * xRot));
+        triPos4.add(Vector3(pos4.x * yz, pos4.y * xz, pos4.y * yRot + pos4.x * xRot));
         
-        this->tri1 = Triangle(transform.position.add(Vector3(pos1.x * yz, pos1.y * xz, pos1.y * yRot + pos1.x * xRot)),
-            transform.position.add(Vector3(pos2.x * yz, pos2.y * xz, pos2.y * yRot + pos2.x * xRot)),
-            transform.position.add(Vector3(pos3.x * yz, pos3.y * xz, pos3.y * yRot + pos3.x * xRot)), camera);
-        this->tri2 = Triangle(transform.position.add(Vector3(pos1.x * yz, pos1.y * xz, pos1.y * yRot + pos1.x * xRot)),
-            transform.position.add(Vector3(pos3.x * yz, pos3.y * xz, pos3.y * yRot + pos3.x * xRot)),
-            transform.position.add(Vector3(pos4.x * yz, pos4.y * xz, pos4.y * yRot + pos4.x * xRot)), camera);
+        this->tri1 = Triangle(triPos1,triPos2,triPos3, camera);
+        this->tri2 = Triangle(triPos1, triPos3, triPos4, camera);
 
     }
 
-    void drawQuad(VAO vao, Camera camera) {
+    void drawQuad(VAO vao, Camera camera, Shader shader) {
+        shader.Activate();
 
-            this->tri1.updatePosition(camera);
-            this->tri2.updatePosition(camera);
-            GLfloat vertices[] = {
-                this->tri1.drawPos1.x,this->tri1.drawPos1.y,
-                this->tri1.drawPos2.x,this->tri1.drawPos2.y,
-                this->tri1.drawPos3.x,this->tri1.drawPos3.y,
-                this->tri2.drawPos3.x,this->tri2.drawPos3.y, };
+        this->tri1.updatePosition(camera);
+        this->tri2.updatePosition(camera);
 
-            GLuint indices[] = { 0,1,2,0,2,3, };
+        GLfloat vertices[] = {
+            this->tri1.drawPos1.x,this->tri1.drawPos1.y,
+            this->tri1.drawPos2.x,this->tri1.drawPos2.y,
+            this->tri1.drawPos3.x,this->tri1.drawPos3.y,
+            this->tri2.drawPos3.x,this->tri2.drawPos3.y, };
 
-            vao.Bind();
-            VBO vbo(vertices, sizeof(vertices));
-            EBO ebo(indices, sizeof(indices));
-            vao.linkVBO(vbo, 0);
-            vbo.Bind();
-            ebo.Bind();
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            vao.Unbind();
-            vbo.Unbind();
-            ebo.Unbind();
-            vbo.Delete();
-            ebo.Delete();
+        GLuint indices[] = { 0,1,2,0,2,3, };
+
+        vao.Bind();
+        VBO vbo(vertices, sizeof(vertices));
+        EBO ebo(indices, sizeof(indices));
+        vao.linkVBO(vbo, 0);
+        vbo.Bind();
+        ebo.Bind();
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        vao.Unbind();
+        vbo.Unbind();
+        ebo.Unbind();
+        vbo.Delete();
+        ebo.Delete();
     }
 
     void Rotate(Vector3 angles, Camera camera) {
         this->transform.Rotate(angles);
+        setPositions(this->transform, camera);
+    }
+
+    void Move(Vector3 delta, Camera camera) {
+        this->transform.Move(delta);
         setPositions(this->transform, camera);
     }
 };
@@ -663,11 +673,14 @@ struct Cube {
 
         //  Next step is to add rotation to the cube
         Vector3 pos1 = pos.difference(xAdd);
-        Vector3 pos2 = pos.add(xAdd);
+        Vector3 pos2 = pos;
+        pos2.add(xAdd);
         Vector3 pos3 = pos.difference(yAdd);
-        Vector3 pos4 = pos.add(yAdd);
+        Vector3 pos4 = pos;
+        pos4.add(yAdd);
         Vector3 pos5 = pos.difference(zAdd);
-        Vector3 pos6 = pos.add(zAdd);
+        Vector3 pos6 = pos;
+        pos6.add(zAdd);
 
         Quaternion rot1 = Quaternion(wRot, -xUnit.x, -xUnit.y, -xUnit.z);
         Quaternion rot2 = Quaternion(wRot, xUnit.x, xUnit.y, xUnit.z);
@@ -685,27 +698,28 @@ struct Cube {
         this->quad6 = Quad(Transform(pos6, rot6, Vector3(scaleX, scaleY, 0)), camera);
     }
 
-    void drawCube(VAO vao, Camera camera) {
-        this->quad1.drawQuad(vao, camera);
-        this->quad2.drawQuad(vao, camera);
-        this->quad3.drawQuad(vao, camera);
-        this->quad4.drawQuad(vao, camera);
-        this->quad5.drawQuad(vao, camera);
-        this->quad6.drawQuad(vao, camera);
+    void drawCube(VAO vao, Camera camera, Shader shader) {
+        this->quad1.drawQuad(vao, camera, shader);
+        this->quad2.drawQuad(vao, camera, shader);
+        this->quad3.drawQuad(vao, camera, shader);
+        this->quad4.drawQuad(vao, camera, shader);
+        this->quad5.drawQuad(vao, camera, shader);
+        this->quad6.drawQuad(vao, camera, shader);
     }
 };
 struct ObjectList {
     vector<Quad> quads;
+    vector<int> shaderID;
 
-
-    void drawObjects(VAO vao, Camera camera) {
+    void drawObjects(VAO vao, Camera camera, vector<Shader> shader) {
         for (int i = 0; i < quads.size(); i++) {
-           quads[i].drawQuad(vao, camera);
+           quads[i].drawQuad(vao, camera, shader[shaderID[i]]);
         }
     }
 
-    void addObject(Quad quad) {
+    void addObject(Quad quad, int shader) {
         quads.push_back(quad);
+        shaderID.push_back(shader);
     }
 
     void Rotate(Vector3 angles, Camera camera, int id) {
@@ -718,6 +732,7 @@ struct App{
     Camera camera;
     GLFWwindow* window;
     ObjectList objectList;
+    vector<Shader> shaders;
     unsigned char mKeyState[256] = {};
     unsigned char mOldKeyState[256] = {};
     float speed;
@@ -747,7 +762,7 @@ struct App{
     }
 
     void update(float deltaTime, VAO vao) {
-        this->objectList.drawObjects(vao, this->camera);
+        this->objectList.drawObjects(vao, this->camera, shaders);
 
         if (::GetKeyboardState(mKeyState)) {
             for (unsigned int i = 0; i < 256; i++) {
@@ -763,5 +778,21 @@ struct App{
             // Store current key state to old key state buffer
             ::memcpy(mOldKeyState, mKeyState, sizeof(unsigned char) * 256);
         }
+    }
+
+    void createShaders() {
+        this->addShader("src/default.vert", "src/default.frag");
+        this->addShader("src/default.vert", "src/red.frag");
+    }
+
+    void addShader(const char* vertexFile, const char* fragmentFile) {
+        shaders.push_back(Shader(vertexFile, fragmentFile));
+    }
+
+    void deleteShaders() {
+        for (int i = 0; i < shaders.size(); i++) {
+            shaders[i].Delete(i);
+        }
+        shaders.erase(shaders.begin(), shaders.end());
     }
 };

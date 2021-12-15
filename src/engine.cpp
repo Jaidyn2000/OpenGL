@@ -2,26 +2,22 @@
 
 #include "main.h"
 
+// Is called at engine launch
 App Start() {
-    App out;
 
-    out.camera = Camera(Transform(Vector3(0.0f, 0.0f, -2.5f), Quaternion(0, 0, 0, 1)));
-    out.window = out.camera.createScreen();
+    App out;
     out.onCreate();
 
-    //out.objectList.addObject(Quad(Transform(Vector3(1, 0, 0)), out.camera));
-    //out.objectList.addObject(Quad(Transform(Vector3(-1, 0, 0)), out.camera));
-    out.objectList.addObject(Quad(Transform(Vector3(0, -1, 0), Quaternion(0,0,1,0), Vector3(10,10,1)), out.camera));
-
+    out.objectList.addObject(Quad(Transform(Vector3(0, 0,0), Quaternion(0,0,0,1), Vector3(1,1,1)), out.camera),1);
+    out.objectList.addObject(Quad(Transform(Vector3(-2, 0, 0), Quaternion(0, 0, 0, 1), Vector3(1,1, 1)), out.camera), 0);
     out.speed = 3;
+
     return out;
 }
 
+// Is called every frame
 App Update(float deltaTime, VAO vao, App app) {
-
-    //app.objectList.quads[0].Rotate(Vector3(0, 0, deltaTime * 3), app.camera);
-    
-    app.update(deltaTime, vao);
+    app.objectList.quads[0].Move(Vector3(deltaTime, 0, 0),app.camera);
     return app;
 }
 
@@ -29,13 +25,11 @@ App Update(float deltaTime, VAO vao, App app) {
 int main(void)
 {   
     /* Initialize the library*/
-    if (!glfwInit())
-        return -1;
+    glfwInit();
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
 
     App app = Start();
     float deltaTime = 0;
@@ -45,9 +39,8 @@ int main(void)
 
     glewInit();
 
-    Shader shaderProgram("src/default.vert","src/default.frag");
-    
     // Variable creation here: 
+    app.createShaders();
 
     VAO vao;
     /* Loop until the user closes the window */
@@ -55,9 +48,10 @@ int main(void)
     {   
         auto t_start = std::chrono::high_resolution_clock::now();
         glClear(GL_COLOR_BUFFER_BIT);
-        shaderProgram.Activate();
+
 
         app = Update(deltaTime, vao, app);
+        app.update(deltaTime, vao);
 
         glfwSwapBuffers(app.window);
         /* Poll for and process events */
@@ -67,7 +61,7 @@ int main(void)
     }
 
     vao.Delete();
-    shaderProgram.Delete();
+    app.deleteShaders();
 
     glfwDestroyWindow(app.window);
     glfwTerminate();
