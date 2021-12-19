@@ -2,6 +2,7 @@
 
 #pragma once
 #define _USE_MATH_DEFINES
+#define GLEW_STATIC
 
 #include "glew.h"
 #include "glfw3.h"
@@ -14,8 +15,11 @@
 #include <sstream>
 #include <cerrno>
 #include <map>
+#include <array>
 #include <vector>
 #include <Windows.h>
+
+
 
 using namespace std;
 
@@ -36,13 +40,28 @@ struct EBO {
     GLuint id;
     GLuint* indices;
     GLsizeiptr size;
-
+    
     EBO(GLuint* indices, GLsizeiptr size) {
         this->indices = indices;
         this->size = size;
         glGenBuffers(1, &id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices, GL_STATIC_DRAW);
+    }
+    
+    EBO(vector<array<GLuint, 6>> indices, GLsizeiptr size) {
+        GLuint* indiceArray[625 * 6];
+        for (int i = 0; i < indices.size(); i++) {
+            indiceArray[6 * i] = &indices[i][0];
+            indiceArray[6 * i + 1] = &indices[i][1];
+            indiceArray[6 * i + 2] = &indices[i][2];
+            indiceArray[6 * i + 3] = &indices[i][3];
+            indiceArray[6 * i + 4] = &indices[i][4];
+            indiceArray[6 * i + 5] = &indices[i][5];
+        }
+        glGenBuffers(1, &id);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indiceArray, GL_DYNAMIC_DRAW);
     }
 
     void Bind() {
@@ -62,7 +81,7 @@ struct VBO {
     GLuint id;
     GLfloat* vertices;
     GLsizeiptr size;
-
+    
     VBO(GLfloat* vertices, GLsizeiptr size) {
         this->vertices = vertices;
         this->size = size;
@@ -70,7 +89,23 @@ struct VBO {
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
     }
-
+    
+    VBO(vector<array<GLfloat,8>> vertices, GLsizeiptr size) {
+        GLfloat* verticeArray[625 * 8];
+        for (int i = 0; i < vertices.size(); i++) {
+            verticeArray[8 * i] = &vertices[i][0];
+            verticeArray[8 * i + 1] = &vertices[i][1];
+            verticeArray[8 * i + 2] = &vertices[i][2];
+            verticeArray[8 * i + 3] = &vertices[i][3];
+            verticeArray[8 * i + 4] = &vertices[i][4];
+            verticeArray[8 * i + 5] = &vertices[i][5];
+            verticeArray[8 * i + 6] = &vertices[i][6];
+            verticeArray[8 * i + 7] = &vertices[i][7];
+        }
+        glGenBuffers(1, &id);
+        glBindBuffer(GL_ARRAY_BUFFER, id);
+        glBufferData(GL_ARRAY_BUFFER, size, verticeArray, GL_DYNAMIC_DRAW);
+    }
     void Bind() {
         glBindBuffer(GL_ARRAY_BUFFER, id);
     }
@@ -600,7 +635,6 @@ struct Quad {
     }
 
     void drawQuad(VAO vao, Camera camera, Shader shader) {
-        shader.Activate();
 
         this->tri1.updatePosition(camera);
         this->tri2.updatePosition(camera);
@@ -613,6 +647,7 @@ struct Quad {
 
         GLuint indices[] = { 0,1,2,0,2,3, };
 
+     
         vao.Bind();
         VBO vbo(vertices, sizeof(vertices));
         EBO ebo(indices, sizeof(indices));
@@ -712,9 +747,14 @@ struct ObjectList {
     vector<int> shaderID;
 
     void drawObjects(VAO vao, Camera camera, vector<Shader> shader) {
+        shader[shaderID[0]].Activate();
+        
         for (int i = 0; i < quads.size(); i++) {
            quads[i].drawQuad(vao, camera, shader[shaderID[i]]);
         }
+        
+        //drawQuads(vao, camera, shader[0], this->quads);
+        
     }
 
     void addObject(Quad quad, int shader) {
@@ -726,6 +766,43 @@ struct ObjectList {
         quads[id].Rotate(angles, camera);
     }
 
+    // Working on parallelizing the process of drawing objects
+    void drawQuads(VAO vao, Camera camera, Shader shader, vector<Quad> quads) {
+        shader.Activate();
+
+        vector<array<GLfloat, 8>> vertices;
+        vector<array<GLuint, 6>> indices;
+
+        /*
+        for (int i = 0; i < quads.size(); i++) {
+            array<GLuint, 6> temp{ {(uint16_t)0 + 6 * i, (uint16_t)1 + 6 * i,(uint16_t) 2 + 6 * i,(uint16_t) 3 + 6 * i,(uint16_t) 4 + 6 * i,(uint16_t) 5 + 6 * i} };
+
+            array<GLfloat, 8> tempVertices = {
+            quads[i].tri1.drawPos1.x,quads[i].tri1.drawPos1.y,
+            quads[i].tri1.drawPos2.x,quads[i].tri1.drawPos2.y,
+            quads[i].tri1.drawPos3.x,quads[i].tri1.drawPos3.y,
+            quads[i].tri2.drawPos3.x,quads[i].tri2.drawPos3.y, };
+
+            indices.push_back(temp);
+            vertices.push_back(tempVertices);
+
+        }
+        */
+        vao.Bind();
+        cout << sizeof(vertices) * vertices.size() << ' ';
+        VBO vbo(vertices, sizeof(vertices) * vertices.size());
+        EBO ebo(indices, sizeof(indices) * indices.size());
+        vao.linkVBO(vbo, 0);
+        vbo.Bind();
+        ebo.Bind();
+        glDrawElements(GL_TRIANGLES, 6 * vertices.size(), GL_UNSIGNED_INT, 0);
+        vao.Unbind();
+        vbo.Unbind();
+        ebo.Unbind();
+        vbo.Delete();
+        ebo.Delete();
+
+    }
 };
 
 struct App{

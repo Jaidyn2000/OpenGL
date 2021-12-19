@@ -1,5 +1,3 @@
-#pragma once
-
 #include "main.h"
 
 // Is called at engine launch
@@ -7,9 +5,11 @@ App Start() {
 
     App out;
     out.onCreate();
-
-    out.objectList.addObject(Quad(Transform(Vector3(0, 0,0), Quaternion(0,0,0,1), Vector3(1,1,1)), out.camera),1);
-    out.objectList.addObject(Quad(Transform(Vector3(-2, 0, 0), Quaternion(0, 0, 0, 1), Vector3(1,1, 1)), out.camera), 0);
+    for (int i = 0; i < 24; i++) {
+        for (int j = 0; j < 24; j++) {
+            out.objectList.addObject(Quad(Transform(Vector3(-25 + 2 * i, -25 + 2*j, 0), Quaternion(0, 0, 0, 1), Vector3(1, 1, 1)), out.camera), 1);
+        }
+    }
     out.speed = 3;
 
     return out;
@@ -17,7 +17,12 @@ App Start() {
 
 // Is called every frame
 App Update(float deltaTime, VAO vao, App app) {
-    app.objectList.quads[0].Move(Vector3(deltaTime, 0, 0),app.camera);
+    /*
+    for (int i = 0; i < 576; i++) {
+        app.objectList.quads[i].Move(Vector3(0, 0, deltaTime), app.camera);
+        app.objectList.quads[i].Rotate(Vector3(0, 0, deltaTime *( i % 2 * 2 - 1)), app.camera);
+    }
+    */
     return app;
 }
 
