@@ -22,6 +22,12 @@ App Update(float deltaTime, VAO vao, App app) {
     }
     */
     //app.camera.move(Vector3(0,0,-deltaTime));
+
+    //app.objectList.drawObjects(vao,app.camera,app.shaders);
+
+    app.input(deltaTime);
+
+    app.objectList.drawObjects(vao,app.camera,app.shaders);
     return app;
 }
 
@@ -55,7 +61,7 @@ int main(void)
 
 
         app = Update(deltaTime, vao, app);
-        app.update(deltaTime, vao);
+        //app.update(deltaTime, vao);
 
         glfwSwapBuffers(app.window);
         /* Poll for and process events */

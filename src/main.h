@@ -729,23 +729,24 @@ struct Cube {
 };
 struct ObjectList {
     vector<Quad> quads;
+    vector<Cube> cubes;
     vector<int> shaderID;
 
-    void drawObjects(VAO vao, Camera camera, vector<Shader> shader) {
-        shader[shaderID[0]].Activate();
-        
-        for (int i = 0; i < quads.size(); i++) {
-           quads[i].drawQuad(vao, camera, shader[shaderID[i]]);
-        }
-        
 
-        //drawQuads(vao, camera, shader[0], this->quads);
+    void drawObjects(VAO vao, Camera camera, vector<Shader> shader) {
+        shader[0].Activate();
+
+        drawQuads(vao, camera, shader[0], this->quads);
         
+        //drawCubes(vao,camera, shader[0], this->cubes);
     }
 
     void addObject(Quad quad, int shader) {
         quads.push_back(quad);
-        shaderID.push_back(shader);
+    }
+
+    void addObject(Cube cube, int shader){
+        cubes.push_back(cube);
     }
 
     void Rotate(Vector3 angles, Camera camera, int id) {
@@ -756,7 +757,11 @@ struct ObjectList {
     void drawQuads(VAO vao, Camera camera, Shader shader, vector<Quad> quads) {
         array<array<GLfloat,12>,512> vertices;
 
-        for (int i = 0; i < quads.size(); i++) {     
+        for (int i = 0; i < quads.size(); i++) {   
+
+            quads[i].tri1.updatePosition(camera);
+            quads[i].tri2.updatePosition(camera); 
+
             vertices[i] = {
                 quads[i].tri1.drawPos1.x,quads[i].tri1.drawPos1.y,
                 quads[i].tri1.drawPos2.x,quads[i].tri1.drawPos2.y,
@@ -767,7 +772,6 @@ struct ObjectList {
         }
 
         vao.Bind();
-        cout << sizeof(vertices[0][0]) * vertices[0].size() * vertices.size() << ' ' << endl;
      
         VBO vbo(vertices, sizeof(vertices[0][0]) * vertices[0].size() * vertices.size());
 
@@ -777,10 +781,8 @@ struct ObjectList {
         glDrawArrays(GL_TRIANGLES,0, 6 * quads.size());
         vao.Unbind();
         vbo.Unbind();
-
         vbo.Delete();
 
-        
     }
 };
 
@@ -818,22 +820,8 @@ struct App{
     }
 
     void update(float deltaTime, VAO vao) {
-        this->objectList.drawObjects(vao, this->camera, shaders);
+        this->objectList.drawObjects(vao,this->camera,this->shaders);
 
-        if (::GetKeyboardState(mKeyState)) {
-            for (unsigned int i = 0; i < 256; i++) {
-                // Key is down
-                if (mKeyState[i] & 0x80) {
-                    onKeyDown(i, deltaTime);
-                }
-                // Key is up
-                else if (mKeyState[i] != mOldKeyState[i]) {
-                    onKeyUp(i, deltaTime);
-                }
-            }
-            // Store current key state to old key state buffer
-            ::memcpy(mOldKeyState, mKeyState, sizeof(unsigned char) * 256);
-        }
     }
 
     void createShaders() {
@@ -851,4 +839,19 @@ struct App{
         }
         shaders.erase(shaders.begin(), shaders.end());
     }
+
+    void input(float deltaTime){
+        GetKeyboardState(mKeyState);
+
+        for (unsigned int i = 0; i < 256; i++) {
+            if (mKeyState[i] & 0x80) {
+                onKeyDown(i, deltaTime);
+            }
+
+            else if (mKeyState[i] != mOldKeyState[i]) {
+                onKeyUp(i, deltaTime);
+            }
+        }
+        ::memcpy(mOldKeyState, mKeyState, sizeof(unsigned char) * 256);
+        }
 };

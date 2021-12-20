@@ -4,6 +4,8 @@
         "ostream": "cpp",
         "chrono": "cpp",
         "array": "cpp",
-        "vector": "cpp"
+        "vector": "cpp",
+        "thread": "cpp",
+        "xthread": "cpp"
     }
 }
