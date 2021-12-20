@@ -19,8 +19,6 @@
 #include <vector>
 #include <Windows.h>
 
-
-
 using namespace std;
 
 std::string get_file_contents(const char* fileName) {
@@ -42,26 +40,26 @@ struct EBO {
     GLsizeiptr size;
     
     EBO(GLuint* indices, GLsizeiptr size) {
-        this->indices = indices;
-        this->size = size;
+
         glGenBuffers(1, &id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices, GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices, GL_DYNAMIC_DRAW);
     }
     
-    EBO(vector<array<GLuint, 6>> indices, GLsizeiptr size) {
-        GLuint* indiceArray[625 * 6];
+    EBO(vector<vector<GLuint>> indices, GLsizeiptr size) {
+        GLfloat indiceArray[625 * 6];
         for (int i = 0; i < indices.size(); i++) {
-            indiceArray[6 * i] = &indices[i][0];
-            indiceArray[6 * i + 1] = &indices[i][1];
-            indiceArray[6 * i + 2] = &indices[i][2];
-            indiceArray[6 * i + 3] = &indices[i][3];
-            indiceArray[6 * i + 4] = &indices[i][4];
-            indiceArray[6 * i + 5] = &indices[i][5];
+            indiceArray[6 * i] = indices[i][0];
+            indiceArray[6 * i + 1] = indices[i][1];
+            indiceArray[6 * i + 2] = indices[i][2];
+            indiceArray[6 * i + 3] = indices[i][3];
+            indiceArray[6 * i + 4] = indices[i][4];
+            indiceArray[6 * i + 5] = indices[i][5];
         }
+        
         glGenBuffers(1, &id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indiceArray, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, &indices[0][0], GL_DYNAMIC_DRAW);
     }
 
     void Bind() {
@@ -87,24 +85,13 @@ struct VBO {
         this->size = size;
         glGenBuffers(1, &id);
         glBindBuffer(GL_ARRAY_BUFFER, id);
-        glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_DYNAMIC_DRAW);
     }
     
-    VBO(vector<array<GLfloat,8>> vertices, GLsizeiptr size) {
-        GLfloat* verticeArray[625 * 8];
-        for (int i = 0; i < vertices.size(); i++) {
-            verticeArray[8 * i] = &vertices[i][0];
-            verticeArray[8 * i + 1] = &vertices[i][1];
-            verticeArray[8 * i + 2] = &vertices[i][2];
-            verticeArray[8 * i + 3] = &vertices[i][3];
-            verticeArray[8 * i + 4] = &vertices[i][4];
-            verticeArray[8 * i + 5] = &vertices[i][5];
-            verticeArray[8 * i + 6] = &vertices[i][6];
-            verticeArray[8 * i + 7] = &vertices[i][7];
-        }
+    VBO(array<array<GLfloat,12>,512> vertices, GLsizeiptr size) {
         glGenBuffers(1, &id);
         glBindBuffer(GL_ARRAY_BUFFER, id);
-        glBufferData(GL_ARRAY_BUFFER, size, verticeArray, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, size, &vertices[0][0], GL_DYNAMIC_DRAW);
     }
     void Bind() {
         glBindBuffer(GL_ARRAY_BUFFER, id);
@@ -643,23 +630,21 @@ struct Quad {
             this->tri1.drawPos1.x,this->tri1.drawPos1.y,
             this->tri1.drawPos2.x,this->tri1.drawPos2.y,
             this->tri1.drawPos3.x,this->tri1.drawPos3.y,
+            this->tri2.drawPos1.x,this->tri2.drawPos1.y,
+            this->tri2.drawPos2.x,this->tri2.drawPos2.y,
             this->tri2.drawPos3.x,this->tri2.drawPos3.y, };
 
-        GLuint indices[] = { 0,1,2,0,2,3, };
 
      
         vao.Bind();
         VBO vbo(vertices, sizeof(vertices));
-        EBO ebo(indices, sizeof(indices));
         vao.linkVBO(vbo, 0);
         vbo.Bind();
-        ebo.Bind();
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
         vao.Unbind();
         vbo.Unbind();
-        ebo.Unbind();
         vbo.Delete();
-        ebo.Delete();
+
     }
 
     void Rotate(Vector3 angles, Camera camera) {
@@ -753,6 +738,7 @@ struct ObjectList {
            quads[i].drawQuad(vao, camera, shader[shaderID[i]]);
         }
         
+
         //drawQuads(vao, camera, shader[0], this->quads);
         
     }
@@ -768,40 +754,33 @@ struct ObjectList {
 
     // Working on parallelizing the process of drawing objects
     void drawQuads(VAO vao, Camera camera, Shader shader, vector<Quad> quads) {
-        shader.Activate();
+        array<array<GLfloat,12>,512> vertices;
 
-        vector<array<GLfloat, 8>> vertices;
-        vector<array<GLuint, 6>> indices;
-
-        /*
-        for (int i = 0; i < quads.size(); i++) {
-            array<GLuint, 6> temp{ {(uint16_t)0 + 6 * i, (uint16_t)1 + 6 * i,(uint16_t) 2 + 6 * i,(uint16_t) 3 + 6 * i,(uint16_t) 4 + 6 * i,(uint16_t) 5 + 6 * i} };
-
-            array<GLfloat, 8> tempVertices = {
-            quads[i].tri1.drawPos1.x,quads[i].tri1.drawPos1.y,
-            quads[i].tri1.drawPos2.x,quads[i].tri1.drawPos2.y,
-            quads[i].tri1.drawPos3.x,quads[i].tri1.drawPos3.y,
-            quads[i].tri2.drawPos3.x,quads[i].tri2.drawPos3.y, };
-
-            indices.push_back(temp);
-            vertices.push_back(tempVertices);
-
+        for (int i = 0; i < quads.size(); i++) {     
+            vertices[i] = {
+                quads[i].tri1.drawPos1.x,quads[i].tri1.drawPos1.y,
+                quads[i].tri1.drawPos2.x,quads[i].tri1.drawPos2.y,
+                quads[i].tri1.drawPos3.x,quads[i].tri1.drawPos3.y,
+                quads[i].tri2.drawPos1.x,quads[i].tri2.drawPos1.y,
+                quads[i].tri2.drawPos2.x,quads[i].tri2.drawPos2.y,
+                quads[i].tri2.drawPos3.x,quads[i].tri2.drawPos3.y };
         }
-        */
+
         vao.Bind();
-        cout << sizeof(vertices) * vertices.size() << ' ';
-        VBO vbo(vertices, sizeof(vertices) * vertices.size());
-        EBO ebo(indices, sizeof(indices) * indices.size());
+        cout << sizeof(vertices[0][0]) * vertices[0].size() * vertices.size() << ' ' << endl;
+     
+        VBO vbo(vertices, sizeof(vertices[0][0]) * vertices[0].size() * vertices.size());
+
         vao.linkVBO(vbo, 0);
         vbo.Bind();
-        ebo.Bind();
-        glDrawElements(GL_TRIANGLES, 6 * vertices.size(), GL_UNSIGNED_INT, 0);
+
+        glDrawArrays(GL_TRIANGLES,0, 6 * quads.size());
         vao.Unbind();
         vbo.Unbind();
-        ebo.Unbind();
-        vbo.Delete();
-        ebo.Delete();
 
+        vbo.Delete();
+
+        
     }
 };
 

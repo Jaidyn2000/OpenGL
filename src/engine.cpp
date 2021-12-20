@@ -5,10 +5,8 @@ App Start() {
 
     App out;
     out.onCreate();
-    for (int i = 0; i < 24; i++) {
-        for (int j = 0; j < 24; j++) {
-            out.objectList.addObject(Quad(Transform(Vector3(-25 + 2 * i, -25 + 2*j, 0), Quaternion(0, 0, 0, 1), Vector3(1, 1, 1)), out.camera), 1);
-        }
+    for (int i = 0; i < 3; i++) {
+        out.objectList.addObject(Quad(Transform(Vector3(-1 + 2 * i, 0, 0), Quaternion(0, 0, 0, 1), Vector3(1,1,1)), out.camera), 1);
     }
     out.speed = 3;
 
@@ -23,6 +21,7 @@ App Update(float deltaTime, VAO vao, App app) {
         app.objectList.quads[i].Rotate(Vector3(0, 0, deltaTime *( i % 2 * 2 - 1)), app.camera);
     }
     */
+    //app.camera.move(Vector3(0,0,-deltaTime));
     return app;
 }
 
